@@ -14,13 +14,11 @@ import (
 )
 
 type Database struct {
-	minSamplePrice  float64
-	maxSamplePrice  float64
-	minSampleAmount int
-	maxSampleAmount int
+	pricesMatrix    [][]float64
+	amountMatrix    [][]int
 	chanceOfAnomaly float64
 	isPopulated     bool
-	Products        []*ProductEntry
+	Products        map[string][]*ProductEntry
 }
 
 type ProductEntry struct {
@@ -30,21 +28,17 @@ type ProductEntry struct {
 }
 
 func Create_Database(
-	minSamplePrice float64,
-	maxSamplePrice float64,
-	minSampleAmount int,
-	maxSampleAmount int,
+	pricesMatrix [][]float64,
+	amountMatrix [][]int,
 	chanceOfAnomaly float64,
 ) *Database {
 
 	return &Database{
-		minSamplePrice:  minSamplePrice,
-		maxSamplePrice:  maxSamplePrice,
-		minSampleAmount: minSampleAmount,
-		maxSampleAmount: maxSampleAmount,
+		pricesMatrix:    pricesMatrix,
+		amountMatrix:    amountMatrix,
 		chanceOfAnomaly: chanceOfAnomaly,
 		isPopulated:     false,
-		Products:        make([]*ProductEntry, 0),
+		Products:        make(map[string][]*ProductEntry),
 	}
 }
 
@@ -81,12 +75,14 @@ func (db *Database) Populate(sampleSizes []int, seed uint64, setOfProductNames [
 	}
 
 	for i, productName := range setOfProductNames {
-		prices := db.createPrices(sampleSizes[i], seed)
-		amounts := db.createAmounts(sampleSizes[i], seed)
+		prices := db.createPrices(sampleSizes[i], seed, i)
+		amounts := db.createAmounts(sampleSizes[i], seed, i)
+
+		db.Products[productName] = make([]*ProductEntry, 0)
 
 		for j := 0; j < sampleSizes[i]; j++ {
-			db.Products = append(
-				db.Products,
+			db.Products[productName] = append(
+				db.Products[productName],
 				&ProductEntry{
 					ProductName: productName,
 					Amount:      amounts[j],
@@ -98,10 +94,10 @@ func (db *Database) Populate(sampleSizes []int, seed uint64, setOfProductNames [
 	db.isPopulated = true
 }
 
-func (db *Database) createPrices(sampleSize int, seed uint64) []float64 {
+func (db *Database) createPrices(sampleSize int, seed uint64, productIndex int) []float64 {
 	dist := distuv.Uniform{
-		Min: db.minSamplePrice,
-		Max: db.maxSamplePrice,
+		Min: db.pricesMatrix[productIndex][0],
+		Max: db.pricesMatrix[productIndex][1],
 
 		Src: rand.NewSource(seed),
 	}
@@ -127,8 +123,8 @@ func (db *Database) createPrices(sampleSize int, seed uint64) []float64 {
 	}
 
 	// Append start and end price as specified
-	prices = prependFloat(prices, db.minSamplePrice)
-	prices = append(prices, db.maxSamplePrice)
+	prices = prependFloat(prices, db.pricesMatrix[productIndex][0])
+	prices = append(prices, db.pricesMatrix[productIndex][1])
 
 	return prices
 }
@@ -145,10 +141,10 @@ func priceAnomaly(price float64, randomGenerator *rand.Rand) float64 {
 	}
 }
 
-func (db *Database) createAmounts(sampleSize int, seed uint64) []int {
+func (db *Database) createAmounts(sampleSize int, seed uint64, productIndex int) []int {
 	dist := distuv.Uniform{
-		Min: float64(db.minSampleAmount),
-		Max: float64(db.maxSampleAmount),
+		Min: float64(db.amountMatrix[productIndex][0]),
+		Max: float64(db.amountMatrix[productIndex][1]),
 		Src: rand.NewSource(seed),
 	}
 
@@ -190,38 +186,33 @@ func prependFloat(x []float64, y float64) []float64 {
 
 func (db *Database) String() string {
 
-	retString := fmt.Sprintf("%v %v %v %v %v", db.minSamplePrice, db.maxSamplePrice, db.minSampleAmount, db.maxSampleAmount, db.chanceOfAnomaly)
-
 	productsString := make([]string, 0)
 
-	for _, pe := range db.Products {
-		productsString = append(productsString, pe.String())
+	for _, productTypeList := range db.Products {
+		for _, pe := range productTypeList {
+			productsString = append(productsString, pe.String())
+		}
 	}
 
-	return retString + "\n" + strings.Join(productsString, "\n")
+	return strings.Join(productsString, "\n")
 }
 
 func databaseFromString(dbSpec string) *Database {
 	dbSpecLines := strings.Split(dbSpec, "\n")
-	header := strings.Split(dbSpecLines[0], " ")
-	dbSpecLines = dbSpecLines[1:]
 
-	minSamplePrice, _ := strconv.ParseFloat(header[0], 64)
-	maxSamplePrice, _ := strconv.ParseFloat(header[1], 64)
-	minSampleAmount, _ := strconv.Atoi(header[2])
-	maxSampleAmount, _ := strconv.Atoi(header[3])
-	chanceOfAnomaly, _ := strconv.ParseFloat(header[4], 64)
-
-	db := Create_Database(
-		minSamplePrice,
-		maxSamplePrice,
-		minSampleAmount,
-		maxSampleAmount,
-		chanceOfAnomaly,
-	)
+	db := &Database{
+		isPopulated: true,
+		Products:    make(map[string][]*ProductEntry),
+	}
 
 	for _, productSpec := range dbSpecLines {
-		db.Products = append(db.Products, productEntryFromString(productSpec))
+		productEntry := productEntryFromString(productSpec)
+
+		if db.Products[productEntry.ProductName] != nil {
+			db.Products[productEntry.ProductName] = append(db.Products[productEntry.ProductName], productEntry)
+		} else {
+			db.Products[productEntry.ProductName] = []*ProductEntry{productEntry}
+		}
 	}
 
 	return db
