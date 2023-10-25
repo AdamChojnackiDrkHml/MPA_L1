@@ -2,15 +2,13 @@ package main
 
 import (
 	"L1/pkg/database"
-	"L1/pkg/predictor"
-	"fmt"
 	"time"
 )
 
 func main() {
-	filepath := "./data/exampleDatabase"
+	filepath := "./data/exampleGeneratedDatabase"
 
-	sampleSize := []int{1000, 1000}
+	sampleSize := 60
 	productNames := []string{"Parasol", "Lornetka"}
 
 	prices := [][]float64{
@@ -25,42 +23,9 @@ func main() {
 
 	seed := uint64(time.Now().UnixNano())
 
-	db := database.Create_Database(prices, amounts, 0.003)
-	db.Populate(sampleSize, seed, productNames)
-	db.SaveToFile(filepath)
-
-	p := predictor.Create_Predictor(db, 0.99)
-
-	newValidProduct := &database.ProductEntry{
-		ProductName: "Parasol",
-		Price:       100,
-		Amount:      40,
-	}
-
-	newInvalidPriceProduct := &database.ProductEntry{
-		ProductName: "Parasol",
-		Price:       1000,
-		Amount:      40,
-	}
-
-	newInvalidAmountProduct := &database.ProductEntry{
-		ProductName: "Parasol",
-		Price:       100,
-		Amount:      4,
-	}
-
-	products := []*database.ProductEntry{
-		newValidProduct,
-		newInvalidPriceProduct,
-		newInvalidAmountProduct,
-	}
-
-	for _, product := range products {
-		if res, err := p.InsertProductToDatabase(product); !res {
-			fmt.Println(err)
-		}
-	}
+	db := database.Create_Database(sampleSize, seed, productNames, prices, amounts, 0.1)
 
 	// db := database.Create_FromFile(filepath)
-	// db.SaveToFile(filepath)
+	db.SaveToFile(filepath)
+
 }

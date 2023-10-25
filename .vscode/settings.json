@@ -3,5 +3,8 @@
         "gonum",
         "matplotlib",
         "Populator"
+    ],
+    "cSpell.enableFiletypes": [
+        "!go"
     ]
 }

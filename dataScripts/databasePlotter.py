@@ -36,15 +36,14 @@ def plotProduct(productName, entry):
     
     plt.scatter(entriesIndex, prices, marker='.', s=s)
     plt.title(f"Prices change for {productName} over time")
-    plt.yscale("log")
     plt.savefig(f"plots/{productName}_prices_change")
     
     plt.close()
     
     plt.scatter(entriesIndex, amount, marker='.', s=s)
     plt.title(f"Amount change for {productName} over time")
-    plt.yscale("log")
     plt.savefig(f"plots/{productName}_amount_change")
+    plt.close()
 
 
 
